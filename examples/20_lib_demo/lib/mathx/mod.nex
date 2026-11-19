@@ -1,0 +1,33 @@
+// mathx 库——单文件包形态（`lib/mathx/` 目录 ＝ `lib.mathx` 包）。
+//
+// ★ 命名空间规则（规范 §2.1）：**以目录限定**——目录即包；`import lib.mathx.{mean}`
+//   按目录解析，与文件名无关。
+//
+// ★ 已知边界（诚实定界，见手册）：当前版本**被 import 的包**在编译期按文件独立
+//   处理，包内函数之间的相互调用尚不解析 ⇒ 库内每个导出函数写成**自足**形态
+//   （不引用包内其它函数）；跨文件的公共助手抽取等包内组织能力随模块系统
+//   收口开放。✗ 不得以"应该能行"掩盖。
+
+// pub：对外可见（可被 import 点名引用）。
+pub fn mean(xs: List<f64>) -> f64 {
+    if xs.len() == 0 { return 0.0 }
+    let mut acc: f64 = 0.0
+    for x in xs {
+        acc = acc + x
+    }
+    return acc / xs.len() as f64
+}
+
+pub fn variance(xs: List<f64>) -> f64 {
+    if xs.len() == 0 { return 0.0 }
+    let mut m: f64 = 0.0
+    for x in xs {
+        m = m + x
+    }
+    m = m / xs.len() as f64
+    let mut acc: f64 = 0.0
+    for x in xs {
+        acc = acc + (x - m) * (x - m)
+    }
+    return acc / xs.len() as f64
+}

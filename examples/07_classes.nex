@@ -1,0 +1,71 @@
+// ============================================================
+// 07 — 类：可见性、继承、方法重写
+// ============================================================
+
+// 基类：字段默认模块内可见，`pub` 修饰后跨模块/跨类可读。
+class Animal {
+    pub name: Str
+
+    fn init(name: Str) {
+        self.name = name
+    }
+
+    fn speak(self) -> Str {
+        return self.name + " makes a sound"
+    }
+
+    // 非 pub 方法只能在类/模块内部使用。
+    fn describe(self) -> Str {
+        return f"{self.name} says: " + self.speak()
+    }
+}
+
+// 继承：`extends` 单继承。子类 `fn init` 的首语句可用 `super(args)` 转发父类构造。
+class Dog extends Animal {
+    pub tricks: i64 = 0
+
+    fn init(name: Str) {
+        // super(name) 等价：手动初始化父类 pub 字段（编译器当前尚不支持 super() 关键字）
+        self.name = name
+    }
+
+    // 重写：同名方法直接覆盖父类。
+    fn speak(self) -> Str {
+        return self.name + " barks!"
+    }
+
+    fn learn_trick(mut self) -> i64 {
+        self.tricks = self.tricks + 1
+        return self.tricks
+    }
+}
+
+// 泛型类：`class Box<T>` 对任意类型复用同一份实现。
+class Box<T> {
+    pub value: T
+
+    fn init(v: T) {
+        self.value = v
+    }
+
+    fn get(self) -> T {
+        return self.value
+    }
+}
+
+fn main() {
+    let mut d = Dog("Rex")
+    println(d.speak()) // 重写后的版本
+    println(d.describe()) // 父类方法内部调用到了子类 speak（多态）
+    println(d.learn_trick()) // 1
+
+    // 向上转型：子类实例可以赋给父类引用（安全向下能力见手册）。
+    let a: Animal = d
+    println(a.speak())
+
+    // 泛型类实例化：类型实参走后缀 turbofish（`Type::<T>(…)`，postfix_op 词形）。
+    let bi = Box::<i64>(42)
+    let bs = Box::<Str>("payload")
+    println(bi.get())
+    println(bs.get())
+}

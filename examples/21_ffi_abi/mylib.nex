@@ -1,0 +1,24 @@
+// ============================================================
+// 21 — FFI 与 ABI：把 Nexus 代码编译成 C ABI 动态库（.dylib/.so），
+//      供任何语言/进程通过 dlopen 消费；也演示从 Nexus 调用系统库。
+// ============================================================
+// 本文件是**库源**。构建（见 build.sh）：
+//   nex mylib.nex --crate-type cdylib -o libmylib.dylib
+//
+// `@ffi.export` 把函数放进 **C ABI 导出面**（裸符号、按值传参）——
+// C/C++/Rust/Python(ctypes)/Go(cgo) 都能直接 dlopen 加载调用。
+
+@ffi.export
+pub fn add(a: i64, b: i64) -> i64 {
+    return a + b
+}
+
+@ffi.export
+pub fn mul(a: i64, b: i64) -> i64 {
+    return a * b
+}
+
+@ffi.export
+pub fn twice(x: f64) -> f64 {
+    return x * 2.0
+}

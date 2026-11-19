@@ -1,0 +1,48 @@
+// ============================================================
+// 09 — 泛型与 concept：以约束表达能力，而非以继承表达层级
+// ============================================================
+
+// concept：类型谓词。`Integral<T>` 为真 ⇔ T 是有符号/无符号整型。
+concept Integral<T> = is_integral(T)
+concept Signed<T> = is_signed(T)
+
+// 泛型函数：`<T: 约束>` 声明"T 必须满足"。多个约束用 `+` 组合。
+fn clamp_to<T: Integral<T>>(x: T, lo: T, hi: T) -> T {
+    if x < lo { return lo }
+    if x > hi { return hi }
+    return x
+}
+
+// 约束组合：Integral 且 Signed 才允许取相反数。
+fn negate<T: Integral<T> + Signed<T>>(x: T) -> T {
+    return -x
+}
+
+// 泛型 + 运算符重载协作：sum 需要元素支持 + 与缺省零值。
+class Accumulator<T: Integral<T>> {
+    pub sum: T
+
+    fn init() {
+        self.sum = 0 as T
+    }
+
+    fn add(mut self, x: T) -> T {
+        self.sum = self.sum + x
+        return self.sum
+    }
+}
+
+fn main() {
+    println(clamp_to<i64>(15, 0, 10)) // 10
+    println(clamp_to<i32>(-5, 0, 10)) // 0
+    println(negate<i64>(42)) // -42
+
+    let mut acc = Accumulator::<i64>()
+    acc.add(10)
+    acc.add(20)
+    acc.add(12)
+    println(acc.sum) // 42
+
+    // 泛型类继承：子类把类型参数传给父类。
+    // （详见手册"泛型继承"一节。）
+}

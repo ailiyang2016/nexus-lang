@@ -1,0 +1,242 @@
+// ============================================================
+// 25 — 编译期元编程：对标 C++ 模板的 Nexus 方式
+// ============================================================
+//
+// C++ 模板元编程三大件：           Nexus 对等机制：
+// ──────────────────────────      ─────────────────────────────
+// TypeList<H,T> + 偏特化           Cons<H,T> + Nil + interface + impl 递归
+//   template<class... Ts>          struct Cons<H, T> { head: H; tail: T }
+//   struct Length<Typelist<>>      interface TList { fn tlen(self) -> i64 }
+//   { static constexpr int v=0; }  impl TList for Nil { fn tlen(self) { return 0 } }
+//   template<class H, class T>     concept HasTlen<T> requires { exists fn tlen(self: T) -> i64 }
+//   struct Length<Typelist<H,T>>   impl<H, T: HasTlen<T>> TList for Cons<H,T> { ... }
+//   { static constexpr int v=1+Length<T>::v; }
+//
+// if constexpr (SFINAE/特化)        const fn 里的 if/while（全程编译期）
+// constexpr while                  const fn 里的 while + 累加
+//
+// 表达式模板 (Expression Template)  全局 operator overload + AST 节点
+//   template<class A, class B>      operator +(a: Node, b: Node) -> Add { return Add(a, b) }
+//   class Expr { A a; B b; }
+//
+// comptime assert = 编译期单元测试（对标 C++ static_assert）
+
+// ──────────────────────────────────────────────────────────────
+// Part 1：const fn — 对标 C++ constexpr / if constexpr / while constexpr
+// ──────────────────────────────────────────────────────────────
+// const fn 全程在编译期求值，结果物化为常量，零运行时开销。
+// C++ 的 `if constexpr (n > 0)` 在 Nexus 里就是普通 `if` ——
+// 因为 const fn 本身就是 constexpr 语义。
+
+// constexpr 阶乘（if + 递归 = if constexpr 特化）
+const fn factorial(n: i64) -> i64 {
+    if n <= 1 { return 1 }
+    return n * factorial(n - 1)
+}
+
+// constexpr 求和（while + 累加 = while constexpr）
+const fn gauss(n: i64) -> i64 {
+    let mut s: i64 = 0
+    let mut i: i64 = 1
+    while i <= n {
+        s = s + i
+        i = i + 1
+    }
+    return s
+}
+
+// constexpr 斐波那契（递归版 — 最适合编译期折叠）
+const fn fib(n: i64) -> i64 {
+    if n < 2 { return n }
+    return fib(n - 1) + fib(n - 2)
+}
+
+// constexpr is_prime（while + 早期返回 + break）
+const fn is_prime(n: i64) -> bool {
+    if n < 2 { return false }
+    let mut i: i64 = 2
+    while i * i <= n {
+        if n % i == 0 { return false }
+        i = i + 1
+    }
+    return true
+}
+
+// ──────────────────────────────────────────────────────────────
+// Part 2：TypeList — 对标 C++ Modern C++ Design 第 3 章
+// ──────────────────────────────────────────────────────────────
+// C++ TypeList 是类型级容器 + 模板偏特化递归计算。
+// Nexus 没有偏特化，但有 impl 递归 + concept 约束 — 表达力等价。
+
+// 空表 = C++ 的 typelist<>
+struct Nil {}
+
+// Cons cell = C++ 的 typelist<H, T>
+struct Cons<H, T> {
+    head: H
+    tail: T
+}
+
+// ── tlen：计算列表长度 ──
+// C++: Length<typelist<>> = 0；Length<typelist<H,T>> = 1 + Length<T>
+interface TList { fn tlen(self) -> i64 }
+// 约束位只能用 concept（interface 不能进约束位）
+concept HasTlen<T> requires { exists fn tlen(self: T) -> i64 }
+// 终结条件（对标 C++ 基础特化）
+impl TList for Nil { fn tlen(self) -> i64 { return 0 } }
+// 递归条件（对标 C++ 递归特化）
+impl<H, T: HasTlen<T>> TList for Cons<H, T> {
+    fn tlen(self) -> i64 { return 1 + self.tail.tlen() }
+}
+
+// ── tsum：计算列表数值和 ──
+// 关键：只有 i64 头能 tsum —— 这就是 C++ 的**偏特化**！
+// C++: template<> struct SumValues<typelist<>> { v=0 };
+//      template<class H, class T> struct SumValues<typelist<H,T>> { v=H + SumValues<T>::v };
+// Nexus: impl TSum for Nil + impl<T> TSum for Cons<i64, T>
+interface TSum { fn tsum(self) -> i64 }
+concept HasTsum<T> requires { exists fn tsum(self: T) -> i64 }
+impl TSum for Nil { fn tsum(self) -> i64 { return 0 } }
+// 具体头部类型 impl — 对标 C++ 偏特化
+impl<T: HasTsum<T>> TSum for Cons<i64, T> {
+    fn tsum(self) -> i64 { return self.head + self.tail.tsum() }
+}
+
+// ── tag：不同头类型不同行为 ──
+// 展示 impl 头部特异性匹配（对标 C++ template 偏特化 tag 分发）
+interface Tag { fn tag(self) -> i64 }
+// i64 头 → 1
+impl<T> Tag for Cons<i64, T> { fn tag(self) -> i64 { return 1 } }
+// Str 头 → 2（更具体的 impl）
+impl Tag for Cons<Str, Nil> { fn tag(self) -> i64 { return 2 } }
+// 空表 → 0
+impl Tag for Nil { fn tag(self) -> i64 { return 0 } }
+
+// ──────────────────────────────────────────────────────────────
+// Part 3：表达式模板（Expression Template）
+// ──────────────────────────────────────────────────────────────
+// C++ 表达式模板：operator+ 返回临时对象而非立即计算。
+// Nexus 通过**全局 operator overload** 天然支持 — 每次 + 返回新 AST 节点对象。
+
+class Node {
+    fn eval() -> f64 { return 0.0 }
+    fn dump() -> Str { return "?" }
+}
+
+class Lit extends Node {
+    pub value: f64
+    fn init(v: f64) { self.value = v }
+    fn eval() -> f64 { return self.value }
+    fn dump() -> Str { return f"{self.value}" }
+}
+
+class Var extends Node {
+    pub name: Str
+    pub current: f64
+    fn init(n: Str, v: f64) { self.name = n; self.current = v }
+    fn eval() -> f64 { return self.current }
+    fn dump() -> Str { return self.name }
+}
+
+class Add extends Node {
+    pub l: Node
+    pub r: Node
+    fn init(l: Node, r: Node) { self.l = l; self.r = r }
+    fn eval() -> f64 { return self.l.eval() + self.r.eval() }
+    fn dump() -> Str { return f"({self.l.dump()} + {self.r.dump()})" }
+}
+
+class Mul extends Node {
+    pub l: Node
+    pub r: Node
+    fn init(l: Node, r: Node) { self.l = l; self.r = r }
+    fn eval() -> f64 { return self.l.eval() * self.r.eval() }
+    fn dump() -> Str { return f"({self.l.dump()} * {self.r.dump()})" }
+}
+
+// 全局 operator overload —— 表达式模板核心
+// 不立即计算，而是构建 AST 节点（对标 C++ operator+ 返回 Expr<A,B>）
+operator +(a: Node, b: Node) -> Add { return Add(a, b) }
+operator *(a: Node, b: Node) -> Mul { return Mul(a, b) }
+
+// ──────────────────────────────────────────────────────────────
+// Part 4：comptime assert — 对标 C++ static_assert
+// ──────────────────────────────────────────────────────────────
+// 条件不成立时编译直接失败。
+
+comptime assert factorial(0) == 1,   "0! must be 1"
+comptime assert factorial(5) == 120, "5! must be 120"
+comptime assert factorial(10) == 3628800, "10! must be 3628800"
+comptime assert gauss(100) == 5050,  "sum 1..100 = 5050"
+comptime assert fib(10) == 55,       "fib(10) = 55"
+comptime assert is_prime(7) == true, "7 is prime"
+comptime assert is_prime(9) == false,"9 is not prime"
+comptime assert is_prime(104729) == true, "104729 is prime"
+
+// ──────────────────────────────────────────────────────────────
+// 运行期演练
+// ──────────────────────────────────────────────────────────────
+
+fn main() {
+    // ── comptime 值计算 ──
+    println("===== comptime 值计算（对标 C++ constexpr）=====")
+    println(f"factorial(10) = {factorial(10)}")  // 编译期折叠
+    println(f"gauss(100)    = {gauss(100)}")     // 编译期折叠
+    println(f"fib(20)       = {fib(20)}")         // 编译期折叠
+    println(f"is_prime(997) = {is_prime(997)}")   // 编译期折叠
+
+    println("")
+    println("===== comptime assert（对标 C++ static_assert）=====")
+    println("  8 个编译期断言全部通过 ✅")
+
+    // ── TypeList 演练 ──
+    println("")
+    println("===== TypeList（对标 C++ typelist + 偏特化）=====")
+    let list = Cons<i64, Cons<i64, Cons<i64, Nil>>> {
+        head: 1,
+        tail: Cons<i64, Cons<i64, Nil>> {
+            head: 2,
+            tail: Cons<i64, Nil> { head: 3, tail: Nil {} }
+        }
+    }
+    println(f"len = {list.tlen()}")        // 3 — 对标 Length<Typelist>
+    println(f"sum = {list.tsum()}")        // 6 — 对标 SumValues<Typelist>
+    println(f"tag = {list.tag()}")         // 1 — i64 头走偏特化
+    println(f"Nil.len = {Nil {}.tlen()}")  // 0
+
+    // ── 表达式模板演练 ──
+    println("")
+    println("===== 表达式模板（对标 C++ Expression Template）=====")
+    let mut x = Var("x", 3.0)
+    let mut y = Var("y", 4.0)
+    let two = Lit(2.0)
+
+    // 构建 AST：expr = (x + y) * 2
+    let expr = (x + y) * two
+    println(f"  AST:    {expr.dump()}")
+    println(f"  eval:   {expr.eval()}")       // (3+4)*2 = 14.0
+
+    // 改变 x 的值，同一个 AST 重新求值
+    // 表达式模板精髓：构建一次，多次求值
+    x.current = 10.0
+    println(f"  x→10:   {expr.eval()}")       // (10+4)*2 = 28.0
+
+    // 组合复杂表达式
+    let z = Var("z", 2.5)
+    let complex = (x * x) + (y * y) + (z * z)
+    println("")
+    println("===== 复杂表达式 =====")
+    println(f"  {complex.dump()}")
+    println(f"  = {complex.eval()}")          // 100 + 16 + 6.25 = 122.25
+
+    println("")
+    println("===== 总结 =====")
+    println("  C++ 模板元编程:       Nexus 对等机制:")
+    println("  ─────────────────     ──────────────────")
+    println("  template<> struct L   interface TList + impl 递归")
+    println("  template<H,T> struct  concept HasTlen<T>")
+    println("  if constexpr          const fn 内 if/while")
+    println("  static_assert         comptime assert")
+    println("  operator+ 临时对象    全局 operator overload")
+    println("  Typelist 偏特化       Cons<H,T> 具体头 impl")
+}

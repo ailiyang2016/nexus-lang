@@ -1,0 +1,54 @@
+// ============================================================
+// 11 — struct 与 enum：数据的两种形态
+// ============================================================
+
+// struct：命名的值聚合（字段布局固定，按值拷贝）。
+struct Point {
+    x: i64,
+    y: i64,
+}
+
+// struct 也可以带方法（与 class 的区别见手册"值语义 vs 引用语义"）。
+struct Size {
+    w: i64,
+    h: i64,
+    fn area(self) -> i64 {
+        return self.w * self.h
+    }
+}
+
+// enum：代数数据类型——变体可以携带字段。
+enum Shape {
+    Circle(f64),
+    Rect(f64, f64),
+    Unit,
+}
+
+// match 对 enum **穷尽**：漏掉任何变体编译器直接拒收。
+fn area(s: Shape) -> f64 {
+    match s {
+        Circle(r) => 3.14159 * r * r,
+        Rect(w, h) => w * h,
+        Unit => 0.0,
+    }
+}
+
+fn main() {
+    // struct 字面量。
+    let p = Point { x: 3, y: 4 }
+    let sz = Size { w: 2, h: 5 }
+    println(p.x + p.y) // 7
+    println(sz.area()) // 10
+
+    // enum 变体构造（点式）与 match 解构。
+    let shapes = [Shape.Circle(1.0), Shape.Rect(2.0, 3.0), Shape.Unit]
+    for s in shapes {
+        println(area(s)) // 3.14159 6 0
+    }
+
+    // enum 变体携带的值可以在 match 臂里绑定使用。
+    match Shape.Circle(2.0) {
+        Circle(r) => println(f"radius = {r}"),
+        _ => println("other"),
+    }
+}

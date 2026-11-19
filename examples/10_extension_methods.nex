@@ -1,0 +1,29 @@
+// ============================================================
+// 10 — 扩展方法：不改动类型定义，为既有类型追加能力
+// ============================================================
+
+// `extend Str { ... }` 给所有字符串追加方法——包括标准内建类型。
+extend Str {
+    fn shout(self) -> Str {
+        return self + "!"
+    }
+
+    fn is_palindrome(self) -> bool {
+        let bytes = self.len()
+        let mut i: usize = 0
+        while i < bytes / 2 {
+            let a = self[i]
+            let b = self[bytes - 1 - i]
+            if a != b { return false }
+            i = i + 1
+        }
+        return true
+    }
+}
+
+fn main() {
+    println("hello".shout()) // hello!
+    println("racecar".is_palindrome()) // true
+    println("nexus".is_palindrome()) // false
+
+}

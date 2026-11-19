@@ -1,0 +1,64 @@
+// ============================================================
+// 08 — 运算符重载：让自定义类型自然地参与运算
+// ============================================================
+
+class Vec2 {
+    pub x: f64
+    pub y: f64
+
+    fn init(x: f64, y: f64) {
+        self.x = x
+        self.y = y
+    }
+
+    // 二元算术：+ - * / 同形。
+    operator +(self, other: Vec2) -> Vec2 {
+        return Vec2(self.x + other.x, self.y + other.y)
+    }
+
+    operator -(self, other: Vec2) -> Vec2 {
+        return Vec2(self.x - other.x, self.y - other.y)
+    }
+
+    operator *(self, k: f64) -> Vec2 {
+        return Vec2(self.x * k, self.y * k)
+    }
+
+    // 比较：定义 == 后 != 自动可用；建议同时给出 <（排序要用）。
+    operator ==(self, other: Vec2) -> bool {
+        return self.x == other.x && self.y == other.y
+    }
+
+    operator <(self, other: Vec2) -> bool {
+        return self.x * self.x + self.y * self.y < other.x * other.x + other.y * other.y
+    }
+
+    // 下标与下标赋值：`v[0]` 读 x，`v[0] = ...` 写 x。
+    operator [](self, i: i64) -> f64 {
+        if i == 0 { return self.x }
+        return self.y
+    }
+
+    operator []=(mut self, i: i64, value: f64) {
+        if i == 0 { self.x = value } else { self.y = value }
+    }
+}
+
+fn main() {
+    let a = Vec2(1.0, 2.0)
+    let b = Vec2(3.0, 4.0)
+
+    let sum = a + b
+    println(f"sum = ({sum.x}, {sum.y})")
+
+    let scaled = a * 3.0
+    println(f"scaled = ({scaled.x}, {scaled.y})")
+
+    println(a == Vec2(1.0, 2.0)) // true
+    println(a < b) // true
+
+    let mut v = Vec2(0.0, 0.0)
+    v[0] = 9.0
+    v[1] = 8.0
+    println(f"v = ({v[0]}, {v[1]})")
+}

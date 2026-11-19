@@ -1,0 +1,31 @@
+// ============================================================
+// 12 — comptime：把计算搬到编译期
+// ============================================================
+// comptime 的原则：能在编译期算完的，就不要留给运行期。
+// 编译期求值的结果直接物化为常量，零运行时成本。
+
+// const fn：编译期函数。调用若能在编译期算完，即折叠为常量。
+const fn square(n: i64) -> i64 {
+    return n * n
+}
+
+const fn fib(n: i64) -> i64 {
+    if n < 2 { return n }
+    return fib(n - 1) + fib(n - 2)
+}
+
+fn main() {
+    // 编译期折叠：square(12) 直接变成常量 144，运行期只有一条 print。
+    println(square(12))
+
+    // 编译期递归也可用：fib(25) 在编译期算完，运行期只是读常量。
+    println(fib(25))
+
+    // 混合：编译期产出 + 运行期输入。
+    let x = square(5)
+    println(x) // 25
+
+    // comptime assert：编译期断言——条件不成立时编译直接失败（§3.17）。
+    comptime assert type_info<i64>.is_integer, "i64 must be integer"
+    println("comptime assertions passed")
+}

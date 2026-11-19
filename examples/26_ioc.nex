@@ -1,0 +1,180 @@
+// ============================================================
+// 26 — 注解驱动 IoC 容器（Spring 全生命周期）
+// ============================================================
+// 核心机制：
+//   ① type_init（编译器自动）→ 遍历 @Component 注解 → Container.global.register_type()
+//   ② Container.run() → 纯反射实例化 + 反射 invoke —— 零硬编码零 match 分派
+//   ③ resolve → 反射 invoke 调接口方法
+//
+// 语言层/运行期 ABI 已注册：
+//   Type.instantiate() -> i64                    (rt: nex_refl_instantiate)
+//   Type.invoke_i64(obj_ptr: i64, method: Str) -> i64  (rt: nex_refl_invoke_i64)
+
+annotation Component(name: Str) where class
+annotation ContainerRun where fn
+
+// ── 切面：@Component 生命周期绑定 ──
+aspect for @Component {
+    fn type_init(ctx: TypeCtx) {
+        let h = ctx.refl_type
+        let total = h.annotation_count()
+        let mut i: i64 = 0
+        let mut bean_name: Str = ""
+        while i < total {
+            if h.annotation_name(i) == "Component" {
+                bean_name = h.annotation_arg(i, "name")
+            }
+            i = i + 1
+        }
+        if bean_name != "" {
+            Container.global.register_type(bean_name, h)
+            println(f"  [type_init] ✅ '{bean_name}' (type={h.name()}) 已自动注册")
+        } else {
+            println(f"  [type_init] ⚠ '{h.name()}' 缺 Component(name) 参数，跳过")
+        }
+    }
+
+    fn instance_create(ctx: InstanceCtx) {
+        println(f"  [instance_create] 🆕 新 Bean 实例, ptr={ctx.instance_ptr}")
+    }
+
+    fn instance_destroy(ctx: InstanceCtx) {
+        let h = ctx.refl_type
+        let n = h.name()
+        println(f"  [instance_destroy] 🗑️  '{n}' 销毁, ptr={ctx.instance_ptr}")
+    }
+}
+
+aspect for @ContainerRun {
+    fn after_return(ctx: CallCtx, result: Value) {
+        println("")
+        println("  ─── [aspect] after_return 织入 — Container.run() 执行完毕 ───")
+        println("  📊 容器生命周期钩子完整触发：")
+        println("     ① type_init ✅  (编译器静态初始化阶段自动注册)")
+        println("     ② instance_create ✅ (Container.run() 内 instantiate 时)")
+        println("     ③ instance_destroy ✅ (main return 时 drop)")
+        println("     ④ after_return ✅ (本切面)")
+    }
+}
+
+interface Logger {
+    fn log(self, msg: Str)
+    // ★ 反射 invoke 友好：无参 → runtime invoke_i64 直接调，args=0
+    fn emit(self)
+}
+
+@reflect
+@Component("console")
+class ConsoleLogger impl Logger {
+    fn log(self, msg: Str) {
+        println(f"[LOG-CONSOLE] {msg}")
+    }
+    fn emit(self) {
+        println("[LOG-CONSOLE] hello from console")
+    }
+}
+
+@reflect
+@Component("file")
+class FileLogger impl Logger {
+    fn log(self, msg: Str) {
+        println(f"[LOG-FILE] {msg}")
+    }
+    fn emit(self) {
+        println("[LOG-FILE] hello from file")
+    }
+}
+
+// ── IoC 容器 ──
+class Container {
+    // 单例（语言原生 static readonly + static {}）
+    static readonly global: Container
+    static {
+        Container.global = Container()
+    }
+
+    pub names: List<Str>
+    pub types: Dict<Str, Type>   // 名字→Type 描述符（type_init 注册）
+    pub beans: Dict<Str, i64>    // 名字→raw obj_ptr（反射实例化产物）
+
+    // 私有构造器（单例化关键，禁止外部 new）
+    private fn init() {
+        self.names = List.new()
+        self.types = Dict.new()
+        self.beans = Dict.new()
+    }
+
+    // type_init handler 调用：注册 BeanDefinition（name + Type 描述符）
+    pub fn register_type(mut self, name: Str, h: Type) {
+        // 幂等：同名 BeanDefinition 只收首份
+        if !self.types.contains_key(name) {
+            self.types.set(name, h)
+            self.names.push(name)
+        }
+    }
+
+    pub fn count(self) -> i64 {
+        return self.names.len() as i64
+    }
+
+    // resolve：按名取 Bean 句柄（不造接口值，直接走反射 invoke）
+    // 返回 raw obj_ptr（i64）——调用方用 self.types.get(nm).unwrap().invoke_i64(ptr, "log") 调方法
+
+    @ContainerRun
+    pub fn run(mut self) {
+        println("")
+        println("===== IoC 容器启动 =====")
+        println(f"  📌 已注册 {self.count()} 个 BeanDefinition（type_init 自动完成）")
+        println("")
+        println("===== 反射实例化（零硬编码） =====")
+        // ★ 核心：types 里的 Type 描述符直接实例化——不查 name、不 match 分派
+        let mut idx: usize = 0
+        while idx < self.names.len() {
+            let nm = self.names[idx]
+            idx = idx + 1
+            match self.types.get(nm) {
+                Some(h) => {
+                    // ★ 反射实例化：Type.instantiate() → obj_ptr
+                    let raw: i64 = h.instantiate()
+                    self.beans.set(nm, raw)
+                }
+                None => println(f"  ⚠ types 里找不到 '{nm}'，跳过"),
+            }
+        }
+        println("")
+        println("===== Bean Resolve（反射 invoke） =====")
+        idx = 0
+        while idx < self.names.len() {
+            let nm = self.names[idx]
+            idx = idx + 1
+            match self.types.get(nm) {
+                Some(h) => {
+                    // ★ 反射 invoke：Type.invoke_i64(obj_ptr, method_name) → 方法返回值
+                    // void 方法返回 0；ok 通道 runtime 内部判定
+                    match self.beans.get(nm) {
+                        Some(raw) => {
+                            // ★ 反射 invoke：Type.invoke_i64(obj_ptr, "emit") — 无参直接调
+                            let _ = h.invoke_i64(raw, "emit")
+                            let typ_name = h.name()
+                            println(f"  📌 resolve('{nm}') → type={typ_name}")
+                        }
+                        None => println(f"  ⚠ beans 里 '{nm}' 没有实例"),
+                    }
+                }
+                None => println(f"  ❌ resolve('{nm}') failed — no type descriptor"),
+            }
+        }
+        println("")
+        println(f"  📊 容器共 {self.count()} 个 Bean（type_init 自动注册 + run() 反射实例化）")
+    }
+}
+
+fn main() {
+    println("╔══════════════════════════════════════════════════════════╗")
+    println("║  26 — 注解驱动 IoC（Spring 全生命周期）                ║")
+    println("║  用户侧零注册・容器侧零硬编码・纯反射                        ║")
+    println("╚══════════════════════════════════════════════════════════╝")
+
+    let mut c = Container.global
+    c.run()
+}

@@ -1,0 +1,52 @@
+// ============================================================
+// 14 — 并发：spawn、Channel、scope
+// ============================================================
+// Nexus 的并发模型：轻量级任务（spawn）+ 通道（Channel<T>）+ 结构化作用域。
+// 任务之间通过类型化通道传递所有权——无共享内存竞态。
+
+// 计算型任务：spawn 返回句柄，`.await()` 收取结果。
+fn compute_sum(n: i64) -> i64 {
+    let mut s: i64 = 0
+    let mut i: i64 = 1
+    while i <= n {
+        s = s + i
+        i = i + 1
+    }
+    return s
+}
+
+fn main() {
+    // ① spawn + await：任务并行执行，主线程等待结果。
+    let h1 = spawn { compute_sum(1000000) }
+    let h2 = spawn { compute_sum(2000000) }
+    let r1 = h1.await()
+    let r2 = h2.await()
+    println(r1)
+    println(r2)
+
+    // ② Channel：任务间传递数据。bounded(容量) 背压、send/recv 阻塞语义。
+    let ch = Channel<Str>::bounded(8)
+    let producer = spawn {
+        ch.send("alpha")
+        ch.send("beta")
+        ch.send("gamma")
+        ch.close()
+    }
+
+    // 消费方按已知条数接收（本例 3 条；动态接收模式见手册）。
+    let mut got: i64 = 0
+    while got < 3 {
+        let msg = ch.recv()
+        println(msg)
+        got = got + 1
+    }
+    producer.await()
+
+    // ③ 数据并行：把工作切给多个任务，再汇总。
+    //    （与①同名会撞同一作用域 ⇒ 循环变量族 h10/h20/h30 区分。）
+    let h10 = spawn { compute_sum(10) }
+    let h20 = spawn { compute_sum(20) }
+    let h30 = spawn { compute_sum(30) }
+    let total = h10.await() + h20.await() + h30.await()
+    println(total) // 55 + 210 + 465 = 730
+}

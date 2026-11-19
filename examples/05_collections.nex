@@ -1,0 +1,43 @@
+// ============================================================
+// 05 — 集合：List / Set / Dict / 列表推导
+// ============================================================
+
+fn main() {
+    // List：最常用的有序集合。
+    let mut nums: List<i64> = [3, 1, 2]
+    nums.push(5)
+    nums.sort()
+    for n in nums {
+        println(n) // 1 2 3 5
+    }
+    println(nums.len())
+
+    // 列表推导：映射与过滤一步到位。
+    let squares = [x * x for x in nums]
+    for v in squares {
+        println(v) // 1 4 9 25
+    }
+    let mut evens: List<i64> = []
+    for x in nums {
+        if x % 2 == 0 { evens.push(x) }
+    }
+    for v in evens {
+        println(v) // 2
+    }
+
+    // Set：去重集合。
+    let s: Set<i64> = { 1, 2, 2, 3 }
+    println(s.len()) // 3
+    println(s.contains(2))
+
+    // Dict：键值对。
+    let mut scores: Dict<Str, i64> = Dict.new()
+    scores.set("alice", 90)
+    scores.set("bob", 85)
+    println(scores.get("alice")) // 90
+    println(scores.len())
+    println(scores.get("bob")) // 85
+    scores.set("carol", 88) // 插入/覆盖
+    println(scores.get("carol")) // 88
+    println(scores.get("dave") ?? 0) // 0（缺省兜底·get+?? 形态）
+}

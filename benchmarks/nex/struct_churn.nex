@@ -1,0 +1,21 @@
+struct Point {
+    x: i64,
+    y: i64,
+}
+
+fn main() -> i32 {
+    let n: i64 = 2000000
+    // 与 C++ vector.reserve(n) 公平对比：预分配 2M 容量
+    let mut pts: List<Point> = List.new(2000000)
+    let mut i: i64 = 0
+    while i < n {
+        pts.push(Point{x: i, y: i * 2})
+        i = i + 1
+    }
+    let mut total: i64 = 0
+    for p in pts {
+        total = total + p.x + p.y
+    }
+    print(total)
+    return 0
+}

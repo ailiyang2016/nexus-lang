@@ -1,0 +1,58 @@
+// ============================================================
+// 18 — 切面（aspect）：不改类定义，横切注入行为
+// ============================================================
+// 四段全链：① annotation 声明 → ② `aspect for @X` 绑定通知体 →
+// ③ 方法/类上贴注解 → ④ 每次调用触发拦截。
+// 典型用途：审计日志、性能计时、事务包裹——业务代码零侵入。
+//
+// 通知点：
+//   * `before(ctx)`        —— 原方法执行**前**；返回 false 可短路（拒绝本次调用）
+//   * `after_return(ctx,r)`—— 原方法正常返回**后**（拿到返回值）
+//   * `around(ctx)`        —— 环绕（实验中，见手册）
+// ctx 上可读注解参数（ctx.ann_str("by")）、实参数（ctx.arg_count()）等。
+
+// ① 声明注解（带参数：审计来源标识）。
+annotation Audit(by: Str)
+
+// ② 绑定切面：所有 @Audit 的方法都会收到 before/after_return 通知。
+aspect for @Audit {
+    fn before(ctx: CallCtx) -> bool {
+        // 前置通知：这里可以做鉴权、计时打点、日志……
+        let src = ctx.ann_str("by")
+        let argc = ctx.arg_count()
+        println("[audit] before by={0} args={1}", src, argc)
+        return true // false = 短路，原方法不执行
+    }
+    fn after_return(ctx: CallCtx, result: Value) {
+        // 后置通知：拿到返回值（Value 上的 as_i64/as_f64 转换）。
+        println("[audit] after, result={0}", result.as_i64())
+        return
+    }
+}
+
+// ③ 应用到方法上。
+class Bank {
+    pub balance: i64 = 0
+
+    @Audit("sys")
+    fn deposit(n: i64) -> i64 {
+        println("  deposit body runs")
+        return n
+    }
+
+    // 未贴注解的方法不进入拦截链。
+    fn helper(n: i64) -> i64 {
+        return n * 2
+    }
+}
+
+// ④ 类级拦截：注解贴在 class 上 → 该类全部公开实例方法都被织入。
+// （见手册"切面"一节与 intercept 语料。）
+
+fn main() {
+    let b = Bank()
+    // 调用顺序：before → 方法体 → after_return
+    let r = b.deposit(100)
+    println(f"final = {r}")
+    println(b.helper(5)) // 无拦截输出
+}

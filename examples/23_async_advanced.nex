@@ -1,0 +1,113 @@
+// ============================================================
+// 23 — 异步进阶：spawn / await / Channel / 结构化并发
+// ============================================================
+// Nexus 的 M:N 协程模型让高并发 I/O 像同步代码一样书写。
+// 1000 个协程 ≈ 27MB 内存（vs 1000 pthread ≈ 5GB）。
+
+fn producer(ch: Channel<i64>, count: i64) {
+    let mut i: i64 = 0
+    while i < count {
+        ch.send(i)
+        i = i + 1
+    }
+}
+
+fn transform(in_ch: Channel<i64>, out_ch: Channel<Str>, count: i64, label: Str) {
+    let mut i: i64 = 0
+    while i < count {
+        let v = in_ch.recv()
+        let squared = v * v
+        out_ch.send(f"{label}[{v}]={squared}")
+        i = i + 1
+    }
+}
+
+fn consumer(ch: Channel<Str>, count: i64) {
+    let mut i: i64 = 0
+    while i < count {
+        let s = ch.recv()
+        println(s)
+        i = i + 1
+    }
+}
+
+// ── 扇出：多 worker 并行处理 ──
+fn fanout_jobs(n_jobs: i64, total: i64) -> i64 {
+    let job_per_worker = total / n_jobs
+    let result_ch = Channel<i64>::bounded(n_jobs)
+    let work_ch = Channel<i64>::bounded(64)
+
+    // 先把所有数字塞进 work channel
+    let wp = spawn {
+        let mut i: i64 = 0
+        while i < total {
+            work_ch.send(i)
+            i = i + 1
+        }
+    }
+
+    // 启动 n_jobs 个 worker
+    let mut i: i64 = 0
+    while i < n_jobs {
+        let wch = work_ch
+        let rch = result_ch
+        spawn {
+            let mut local_sum: i64 = 0
+            let mut count: i64 = 0
+            while count < job_per_worker {
+                let v = wch.recv()
+                local_sum = local_sum + v * v
+                count = count + 1
+            }
+            rch.send(local_sum)
+        }
+        i = i + 1
+    }
+
+    wp.await()
+
+    // 聚合结果
+    let mut total_sum: i64 = 0
+    i = 0
+    while i < n_jobs {
+        let s = result_ch.recv()
+        total_sum = total_sum + s
+        i = i + 1
+    }
+    return total_sum
+}
+
+fn main() {
+    println("=== 流水线：producer → transform → consumer ===")
+    let count: i64 = 5
+    let raw = Channel<i64>::bounded(8)
+    let cooked = Channel<Str>::bounded(8)
+
+    let pp = spawn { producer(raw, count) }
+    let tp = spawn { transform(raw, cooked, count, "sq") }
+    let cp = spawn { consumer(cooked, count) }
+    pp.await(); tp.await(); cp.await()
+
+    println("")
+    println("=== 扇出：10 worker 并行算平方和 ===")
+    let total = fanout_jobs(10, 1000)
+    println(f"Sum of squares 0..999 = {total}")
+
+    println("")
+    println("=== 高并发：10000 个协程同时启动 ===")
+    let n: i64 = 10000
+    let done = Channel<i64>::bounded(n)
+    let mut i: i64 = 0
+    while i < n {
+        spawn { done.send(1) }
+        i = i + 1
+    }
+    let mut got: i64 = 0
+    i = 0
+    while i < n {
+        done.recv()
+        got = got + 1
+        i = i + 1
+    }
+    println(f"全部 {got} 个协程完成")
+}

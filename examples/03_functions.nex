@@ -1,0 +1,45 @@
+// ============================================================
+// 03 — 函数：缺省参数、多返回值、不限定参数
+// ============================================================
+
+// 缺省参数：调用方可以省略尾部参数。
+fn connect(host: Str, port: i32 = 5432, timeout_ms: i32 = 3000) -> Str {
+    return f"tcp://{host}:{port} (timeout={timeout_ms}ms)"
+}
+
+// 多返回值：直接返回元组，用 `.0` / `.1` 取出。
+fn divmod(a: i64, b: i64) -> (i64, i64) {
+    return (a / b, a % b)
+}
+
+// 不限定参数（rest parameter）：`...name: Type` 把余下实参收进一个列表。
+fn total(...nums: i64) -> i64 {
+    let mut s: i64 = 0
+    for n in nums {
+        s = s + n
+    }
+    return s
+}
+
+// 函数是值：可以当作参数传递，也可以从函数里返回。
+fn apply_twice(f: fn(i64) -> i64, x: i64) -> i64 {
+    return f(f(x))
+}
+
+fn inc(x: i64) -> i64 {
+    return x + 1
+}
+
+fn main() {
+    println(connect("db.local")) // 全部缺省
+    println(connect("db.local", 6379)) // 部分缺省
+    println(connect("api.local", 443, 500))
+
+    let p = divmod(17, 5)
+    println(f"17 / 5 = {p.0} ... {p.1}")
+
+    println(total(1, 2, 3)) // 6
+    println(total(10, 20)) // 30
+
+    println(apply_twice(inc, 10)) // 12
+}

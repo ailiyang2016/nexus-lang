@@ -1,0 +1,42 @@
+// ============================================================
+// 02 — 内置类型与变量
+// ============================================================
+// Nexus 的内置类型覆盖完整整型谱系：i8/i16/i32/i64/i128、u8..u128、
+// f32/f64、bool、Char、Str。类型推导无处不在——大多数时候你不必写类型。
+
+fn main() {
+    // 类型推导：整数字面量缺省 i32，按上下文自动加宽（i32 → i64）。
+    let small = 42
+    let big: i64 = 9000000000
+    let pi = 3.14159 // f64
+    let flag = true // bool
+    let letter: Char = 'N'
+    let name = "Nexus" // Str（不可变字符串视图）
+
+    println(small)
+    println(big)
+    println(pi)
+    println(flag)
+    println(letter)
+    println(name)
+
+    // 可变性需要显式声明 `mut`——默认不可变，编译器替你守护。
+    let mut counter: i64 = 0
+    counter = counter + 1
+    counter = counter + 1
+    println(counter) // 2
+
+    // 字符串插值（f-string）：任意表达式都能嵌进去。
+    let version = 25
+    println("Nexus v{0}: counter={1}, pi={2:.2}", version, counter, pi)
+
+    // 数值后缀：需要指明宽度/符号时直接写后缀。
+    let mask = 0xFFFF_FFFFu64
+    println(mask)
+
+    // Option<T>：用 `?` 表示"可能为空"，`??` 提供缺省值。
+    let maybe: i64? = 7
+    println(maybe ?? 0) // 7
+    let empty: i64? = null
+    println(empty ?? 0) // 0
+}

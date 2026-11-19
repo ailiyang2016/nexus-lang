@@ -1,0 +1,75 @@
+// ============================================================
+// 19 — 内置类型的常用方法：Str / List / Dict / Set / 数值
+// ============================================================
+// 每个内置类型都带一组方法（完整清单见手册"内建类型方法"附录）。
+// 本例只演示最常用的一批——全部可在你下载的工具链上直接运行。
+
+fn main() {
+    // ── Str：查询 / 切片 / 分割 / 解析 ──
+    let s = "Hello, Nexus"
+    println(s.len()) // 12（按字节）
+    println(s.contains("Nex")) // true
+    println(s.starts_with("Hello")) // true
+    let fallback: usize = 0
+    println(s.find("Nexus") ?? fallback) // 7（Option<usize>：兜底同宽）
+    println(s.slice(7, 12)) // Nexus
+    println(s.slice_to(5)) // Hello
+    println("  pad  ".trim()) // 去两端空白
+    for seg in "a,b,c".split(",") {
+        println(seg) // a b c
+    }
+    // （parse_int/parse_float：boot 侧方法面未接线——随 M52 方法表补齐开放。）
+
+    // ── List：增删查 / 排序 / 迭代 ──
+    let mut xs: List<i64> = [3, 1, 2]
+    xs.sort() // 排序（原地）
+    for v in xs {
+        println(v) // 1 2 3
+    }
+    println(xs.contains(2)) // true
+    let top = xs.pop() // 弹出末尾
+    println(top ?? 0)
+    println(xs.len())
+
+    // map + 列表推导：两种映射风格并存。
+    let doubled = xs.map(fn(v: i64) => v * 10)
+    for v in doubled {
+        println(v) // 10 990 20
+    }
+    let mut evens: List<i64> = []
+    for x in xs {
+        if x % 2 == 0 { evens.push(x) }
+    }
+    for v in evens {
+        println(v) // 10 20
+    }
+
+    // ── Dict：存取 / 查询 / 遍历 ──
+    let mut ages: Dict<Str, i64> = Dict.new()
+    ages.set("alice", 30)
+    ages.set("bob", 25)
+    ages.set("carol", 28)
+    println(ages.get("bob") ?? 0) // 25
+    println(ages.get("dave") ?? 0) // 0（缺省兜底）
+    println(ages.contains_key("carol")) // true
+    for k in ages.keys() {
+        println(k) // alice bob carol（迭代键）
+    }
+
+    // ── Set：去重与成员查询 ──
+    let mut tags: Set<Str> = Set.new()
+    tags.insert("core")
+    tags.insert("jit")
+    tags.insert("core")
+    println(tags.len()) // 2（去重）
+    println(tags.contains("jit")) // true
+
+    // ── 数值与转换：to_str 是"任意值 → Str"的唯一名字 ──
+    let n: i64 = 42
+    let f = 2.5
+    println(n.to_str())
+    println(f.to_str())
+    println((n + f as i64).to_str())
+
+    // （to_str(spec) 与数学方法族：boot 侧方法面未接线——随 M52 方法表补齐开放。）
+}

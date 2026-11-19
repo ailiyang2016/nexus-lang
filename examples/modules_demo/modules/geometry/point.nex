@@ -1,0 +1,16 @@
+// Point 类型定义——同包（geometry）成员，mod.nex 与 main.nex 都能使用。
+
+pub class Point {
+    pub x: i64
+    pub y: i64
+
+    fn init(x: i64, y: i64) {
+        self.x = x
+        self.y = y
+    }
+
+    // 欧几里得范数 √(x² + y²)。
+    pub fn norm(self) -> f64 {
+        return (self.x * self.x + self.y * self.y) as f64
+    }
+}

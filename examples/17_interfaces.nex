@@ -1,0 +1,73 @@
+// ============================================================
+// 17 — 接口：内联实现、外联实现与默认方法
+// ============================================================
+// 接口（interface）约定"能做什么"而不约束"是什么"：
+//   * **内联实现**：`class C impl I` ——实现方法就写在类体内；
+//   * **外联实现**：`impl I for T` ——在类型定义之外补实现（连 struct 都能实现接口）；
+//   * **默认方法**：接口体内的方法带实现体——实现者未重写时自动继承。
+// 接收接口值（`fn f(s: Shape)`）即动态分派：vtable 多态，与继承无关。
+
+// ── 接口：一个必须实现的方法 + 一个默认方法 ──
+interface Shape {
+    fn area(self) -> f64
+    fn describe(self) -> Str {
+        return "a shape"
+    }
+}
+
+// ── 内联实现：class 体内直接给出实现 ──
+class Circle impl Shape {
+    pub r: f64
+    fn init(r: f64) {
+        self.r = r
+    }
+    fn area(self) -> f64 {
+        return 3.14159 * self.r * self.r
+    }
+    fn describe(self) -> Str {
+        return f"circle(r={self.r})"
+    }
+}
+
+// ── 外联实现：struct 也能实现接口（类型定义与实现分离）──
+struct Square {
+    side: f64,
+}
+impl Shape for Square {
+    fn area(self) -> f64 {
+        return self.side * self.side
+    }
+    // describe 未重写 ⇒ 走接口默认实现
+}
+
+// ── 外联实现 + 默认方法继承：只重写 area，describe 自动继承 ──
+struct Triangle {
+    base: f64,
+    height: f64,
+}
+impl Shape for Triangle {
+    fn area(self) -> f64 {
+        return self.base * self.height / 2.0
+    }
+}
+
+// 接收接口值：动态分派（vtable）——不看具体类型，只看接口能力。
+fn render(s: Shape) -> f64 {
+    return s.area()
+}
+
+fn main() {
+    let c = Circle(2.0)
+    println(render(c)) // 内联实现：area
+    println(c.describe())
+
+    let sq = Square { side: 3.0 }
+    println(render(sq)) // 外联实现（默认方法 describe）
+
+    let t = Triangle { base: 4.0, height: 5.0 }
+    println(render(t))
+
+    // 接口值：显式 upcast（具体类型 → 接口引用）。
+    let s: Shape = c
+    println(s.area())
+}

@@ -1,0 +1,51 @@
+// ============================================================
+// 16 — 格式化：println 格式串与 f-string 说明符
+// ============================================================
+// Nexus 有两套共用同一渲染核的格式化入口：
+//   ① 格式串：`println("x={0:.2f}", x)`——占位 {N} 必须带显式索引（0-based）；
+//   ② f-string：`println(f"x={x:.2f}")`——插值任意表达式，可带说明符。
+// 形状与索引在**编译期**校验（索引越界直接拒收）；说明符语义在运行期渲染。
+// 完整说明符文法（规范 §8.1.5）：
+//   [[fill]align]? sign? "#"? zero? width? ("." precision)? type?
+//   align ∈ < > ^   sign ∈ + - 空格   type ∈ b o d x X e E f F g s ?
+
+fn main() {
+    // ── 定点与精度 ──
+    let pi = 3.14159265358979
+    println("pi = {0:.2f}", pi) // 定点两位小数
+    println("pi = {0:.5f}", pi) // 定点五位小数
+    println("sci  = {0:.3e}", pi) // 科学计数
+    println("compact = {0:g}", 2500000.0) // 最紧凑形式
+
+    // ── 整数进制 ──
+    let n = 255
+    println("dec={0:d} hex={0:x} HEX={0:X} oct={0:o} bin={0:b}", n)
+    println("hex#={0:#x}", n) // 基数前缀 0xff
+
+    // ── 宽度与对齐 ──
+    println("right [{0:>8}]", 42)
+    println("left  [{0:<8}]", 42)
+    println("center[{0:^8}]", 42)
+    println("zero  [{0:08}]", 42)
+    println("fill  [{0:*<8}]", 42) // 自定义填充字符
+
+    // ── 符号控制 ──
+    println("sign  [{0:+d}] [{1:+d}] [{1: d}]", 5, 5) // +5 / +5 / (空格)5
+
+    // ── 乱序与重复引用 ──
+    println("{1} before {0}", "second", "first")
+    println("{0} and {0} again", "echo")
+
+    // ── 调试形式 {?}：带引号转义的结构化转储 ──
+    println("debug = {0:?}", "text")
+
+    // ── 字面花括号 ──
+    println("braces {{{0}}}", 1) // {{ → { ，}} → }
+
+    // ── f-string 说明符（与格式串共用同一渲染核）──
+    let name = "hi"
+    let ok = true
+    println(f"pi={pi:.2f} hex={n:x} pad={n:>8}")
+    println(f"text={name:>5} bool={ok:>6}")
+    println(f"{n:#x} {n:b} {pi:.3e}")
+}

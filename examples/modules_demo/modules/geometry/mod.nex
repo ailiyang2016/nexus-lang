@@ -1,0 +1,11 @@
+// geometry 包入口——同目录所有文件的 `pub` 声明并入同一符号空间。
+// 本文件可以直接使用 point.nex 里 pub 的类型（同包无需 import）。
+
+pub fn dot(a: Point, b: Point) -> i64 {
+    return a.x * b.x + a.y * b.y
+}
+
+// 模块私有函数：外部 import 不到（可见性演示）。
+fn scale_squared(a: Point) -> i64 {
+    return dot(a, a)
+}

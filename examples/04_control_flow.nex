@@ -1,0 +1,53 @@
+// ============================================================
+// 04 — 控制流：if / while / for-in / match / 范围
+// ============================================================
+
+fn classify(n: i64) -> Str {
+    // match 是表达式：每个臂求值出值，必须穷尽所有情况。
+    match n {
+        0 => "zero",
+        1 => "one",
+        _ => "many",
+    }
+}
+
+fn main() {
+    // if / else——普通语句（Nexus 也有 while / for，见下）。
+    let n = 7
+    if n % 2 == 0 {
+        println(f"{n} is even")
+    } else {
+        println(f"{n} is odd")
+    }
+
+    // for-in：列表、范围都能迭代。
+    for i in [1, 2, 3] {
+        println(i)
+    }
+    // 范围字面量 `[a..b]`：上界排他（§9.3.1）——不存在裸 `a..b` 形态。
+    for i in [0..3] {
+        println(i) // 0 1 2
+    }
+
+    // while：经典的循环形态。
+    let mut i: i64 = 0
+    while i < 3 {
+        i = i + 1
+    }
+    println(i) // 3
+
+    // match：表达式 + 穷尽性检查（编译器强制覆盖全部枚举变体，见 11）。
+    println(classify(0))
+    println(classify(5))
+
+    // 范围切片：`[a..b]` 产出视图，不拷贝。
+    let xs = [10, 20, 30, 40, 50]
+    let mid = xs[1..4]
+    for v in mid {
+        println(v) // 20 30 40
+    }
+
+    // Option 与空安全：`?` 标记可空，`??` 提供缺省，`?.` 安全解引用。
+    let found: Str? = "result"
+    println(found ?? "none")
+}

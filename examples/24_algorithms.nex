@@ -1,0 +1,88 @@
+// ============================================================
+// 24 — 算法：展示 Nexus 表达力的经典问题
+// ============================================================
+// 覆盖：分治排序、动态规划、哈希表查找。
+
+// ── 快速排序（分治 + 递归）──
+// 注意：List[i] 直接返回值；List.get(i) 返回 Option（安全读）
+fn quick_sort(arr: List<i64>) -> List<i64> {
+    if arr.len() <= 1 { return arr }
+    let mut data = arr
+    let pivot = data[0]
+    let mut less: List<i64> = []
+    let mut greater: List<i64> = []
+    let mut i = 1usize
+    while i < data.len() {
+        let v = data[i]
+        if v < pivot { less.push(v) } else { greater.push(v) }
+        i = i + 1
+    }
+    let mut sorted = quick_sort(less)
+    sorted.push(pivot)
+    let right = quick_sort(greater)
+    let mut j = 0usize
+    while j < right.len() {
+        sorted.push(right[j])
+        j = j + 1
+    }
+    return sorted
+}
+
+// ── 斐波那契（动态规划 + 迭代）──
+fn fib(n: i64) -> i64 {
+    if n <= 1 { return n }
+    let mut a: i64 = 0
+    let mut b: i64 = 1
+    let mut i: i64 = 2
+    while i <= n {
+        let t = a + b
+        a = b
+        b = t
+        i = i + 1
+    }
+    return b
+}
+
+// ── 两数之和（哈希表 + 一次遍历）──
+// 用 Dict + 安全读 match Option
+fn two_sum(nums: List<i64>, target: i64) -> (i64, i64)? {
+    let mut seen: Dict<i64, i64> = Dict.new()
+    let mut i = 0usize
+    while i < nums.len() {
+        let v = nums[i]
+        let complement = target - v
+        let idx = seen.get(complement)
+        match idx {
+            Some(j) => { return Some((j, i as i64)) }
+            None => { seen.set(v, i as i64) }
+        }
+        i = i + 1
+    }
+    let none: (i64, i64)? = None
+    return none
+}
+
+fn main() {
+    println("=== 快速排序 ===")
+    let data: List<i64> = [64, 34, 25, 12, 22, 11, 90, 45, 7]
+    let sorted = quick_sort(data)
+    for v in sorted { print(f"{v} ") }
+    println("")
+
+    println("")
+    println("=== 斐波那契（迭代 DP）===")
+    let mut i: i64 = 0
+    while i <= 15 {
+        println(f"fib({i:2}) = {fib(i)}")
+        i = i + 1
+    }
+
+    println("")
+    println("=== 两数之和（哈希表）===")
+    let nums: List<i64> = [2, 7, 11, 15, 3, 8]
+    let r = two_sum(nums, 18)
+    match r {
+        Some(p) => println(f"找到：索引 {p.0}, {p.1}"),
+        None => println("没找到"),
+    }
+}

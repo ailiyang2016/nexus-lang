@@ -1,0 +1,36 @@
+fn main() -> i32 {
+    let n: i64 = 384
+    let sz: i64 = n * n
+    let mut a: List<f64> = List.new()
+    let mut b: List<f64> = List.new()
+    let mut c: List<f64> = List.new()
+    let mut i: i64 = 0
+    while i < sz {
+        let av: i64 = (i * 7 + 3) % 13
+        let bv: i64 = (i * 5 + 1) % 11
+        a.push(av as f64)
+        b.push(bv as f64)
+        c.push(0.0)
+        i = i + 1
+    }
+    let mut r: i64 = 0
+    while r < n {
+        let mut col: i64 = 0
+        while col < n {
+            let mut acc: f64 = 0.0
+            let mut k: i64 = 0
+            while k < n {
+                acc = acc + a[(r * n + k) as usize] * b[(k * n + col) as usize]
+                k = k + 1
+            }
+            c[(r * n + col) as usize] = acc
+            col = col + 1
+        }
+        r = r + 1
+    }
+    let mut total: f64 = 0.0
+    let mut t: i64 = 0
+    while t < sz { total = total + c[t as usize]; t = t + 1 }
+    print(total as i64)
+    return 0
+}

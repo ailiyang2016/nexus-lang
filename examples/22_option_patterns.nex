@@ -1,0 +1,69 @@
+// ============================================================
+// 22 — Option：空安全、模式匹配、优雅降级
+// ============================================================
+// Option<T> 是 Nexus 处理"可能没有值"的内建类型。
+// 构造：Some(v) / None / T? 隐式
+// 访问：match / ?? 兜底 / is_some / is_none
+
+fn find_user(id: i64) -> Str? {
+    let db: Dict<i64, Str> = { 1: "alice", 2: "bob", 4: "carol" }
+    return db.get(id)
+}
+
+fn safe_div(a: f64, b: f64) -> f64? {
+    if b == 0.0 { let r: f64? = None; return r } else { Some(a / b) }
+}
+
+// 模拟文件读取：有些路径不存在
+fn read_config(path: Str) -> Str? {
+    let configs: Dict<Str, Str> = {
+        "/etc/db.conf": "host=localhost port=5432",
+        "/etc/app.conf": "debug=false log=info",
+    }
+    return configs.get(path)
+}
+
+fn main() {
+    println("=== Option 空安全 ===")
+    // ?? 兜底：Some → 值，None → 默认值
+    let name: Str = find_user(2) ?? "unknown"
+    println(f"User 2: {name}")
+    let name42: Str = find_user(42) ?? "unknown"
+    println(f"User 42: {name42}")
+
+    // match 模式匹配（穷尽性检查）
+    println("")
+    println("=== Match 模式匹配 ===")
+    let user = find_user(1)
+    match user {
+        Some(s) => println(f"Found: {s}"),
+        None => println("Not found"),
+    }
+
+    println("")
+    println("=== 文件读取 + 优雅降级 ===")
+    let paths: List<Str> = ["/etc/db.conf", "/etc/missing.conf", "/etc/app.conf"]
+    for p in paths {
+        let cfg = read_config(p)
+        match cfg {
+            Some(content) => println(f"  {p} → {content}"),
+            None => println(f"  {p} → (not found)"),
+        }
+    }
+
+    println("")
+    println("=== 安全除法 ===")
+    let pairs: List<(f64, f64)> = [(10.0, 3.0), (5.0, 0.0), (7.0, 2.0)]
+    for p in pairs {
+        let r = safe_div(p.0, p.1)
+        match r {
+            Some(v) => println(f"  {p.0} / {p.1} = {v:.4}"),
+            None => println(f"  {p.0} / {p.1} = (divide by zero)"),
+        }
+    }
+
+    println("")
+    println("=== is_some / is_none ===")
+    if find_user(1).is_some() { println("用户 1 存在") }
+    if find_user(99).is_none() { println("用户 99 不存在") }
+}

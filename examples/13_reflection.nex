@@ -1,0 +1,56 @@
+// ============================================================
+// 13 — 反射与注解：让程序认识自己
+// ============================================================
+// `@reflect` 让类登记进运行期反射表：类型名、字段、方法可被查询。
+// `Type.from_name` 按名字查类型句柄；句柄可读字段元信息。
+
+@reflect
+class Point {
+    pub x: i64
+    pub y: i64
+
+    fn init(x: i64, y: i64) {
+        self.x = x
+        self.y = y
+    }
+}
+
+// 注解：先声明（可带参数），再"贴"到声明上；运行期可查。
+annotation Tag(label: Str)
+
+@Tag("geometry")
+@reflect
+class Circle {
+    pub radius: f64
+
+    fn init(r: f64) {
+        self.radius = r
+    }
+}
+
+fn main() {
+    // 按名查类型句柄；未命中返回 None（Option，空安全）。
+    let t = Type.from_name("Point")
+    match t {
+        Some(h) => {
+            println(h.name()) // Point
+            println(h.field_count()) // 2
+        }
+        None => println("not found"),
+    }
+
+    // 注解元信息可被查询（annotation_count / annotation_name）。
+    let ct = Type.from_name("Circle")
+    match ct {
+        Some(h) => {
+            println(h.name())
+            println(h.field_count())
+        }
+        None => println("not found"),
+    }
+
+    // typeof：直接取表达式类型句柄。
+    let p = Point(1, 2)
+    let h = typeof(p)
+    println(h.name()) // Point
+}

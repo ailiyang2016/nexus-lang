@@ -1,0 +1,14 @@
+// ============================================================
+// 01 — Hello, Nexus：你的第一个程序
+// ============================================================
+// 运行：  nex 01_hello_world.nex          （编译为当前目录的可执行体）
+// 一步到位：nex 01_hello_world.nex -o hello && ./hello
+
+fn main() {
+    println("Hello, Nexus!")
+    println("A language that is easy like Python, fast like C.")
+}
+
+// 要点：
+//  * `fn main() { ... }` 是程序入口；函数体最后一行若为表达式，其值即返回值。
+//  * `println(...)` 打印并换行；`print(...)` 打印不换行。

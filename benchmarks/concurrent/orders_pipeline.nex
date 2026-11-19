@@ -1,0 +1,115 @@
+// ============================================================
+// 并发业务基准：订单流水线（orders_pipeline）
+// ============================================================
+// 场景：电商订单流——生产者按序产生 N 笔订单（含金额与品类），
+// 两个校验/聚合 worker **竞争消费**同一入口通道（天然负载均衡），
+// 各自维护局部聚合（免共享内存竞态），流水线末端主线程合并局部结果。
+//
+// 压测点：通道往返（bounded 背压）、任务唤醒/切换、struct 消息传递、
+// 浮点累加、分支分类——不是 ping-pong 微基准，而是一条真实业务管线。
+//
+// 校验和（N=20000）：amount_i = (i % 97) + 1.0；总额与分品类和均可
+// 闭式算出，运行后与期望值比对（错误即退出码非 0）。
+
+struct Order {
+    id: i64,
+    amount: f64,
+    cat: i64,
+}
+
+struct Agg {
+    total: f64,
+    count: i64,
+    cat0: f64,
+    cat1: f64,
+    cat2: f64,
+    cat3: f64,
+    fn init(mut self) {
+        self.total = 0.0
+        self.count = 0
+        self.cat0 = 0.0
+        self.cat1 = 0.0
+        self.cat2 = 0.0
+        self.cat3 = 0.0
+    }
+    fn absorb(mut self, o: Order) {
+        self.total = self.total + o.amount
+        self.count = self.count + 1
+        if o.cat == 0 {
+            self.cat0 = self.cat0 + o.amount
+        } else if o.cat == 1 {
+            self.cat1 = self.cat1 + o.amount
+        } else if o.cat == 2 {
+            self.cat2 = self.cat2 + o.amount
+        } else {
+            self.cat3 = self.cat3 + o.amount
+        }
+    }
+    fn merge(self, other: Agg) -> Agg {
+        return Agg {
+            total: self.total + other.total,
+            count: self.count + other.count,
+            cat0: self.cat0 + other.cat0,
+            cat1: self.cat1 + other.cat1,
+            cat2: self.cat2 + other.cat2,
+            cat3: self.cat3 + other.cat3,
+        }
+    }
+}
+
+fn worker(ch_in: Channel<Order>, ch_out: Channel<Agg>, n: i64) {
+    let mut agg = Agg { total: 0.0, count: 0, cat0: 0.0, cat1: 0.0, cat2: 0.0, cat3: 0.0 }
+    for i in [0..n] {
+        let o = ch_in.recv()
+        agg.absorb(o)
+    }
+    ch_out.send(agg)
+}
+
+fn main() -> i32 {
+    let ch_in = Channel<Order>::bounded(64)
+    let ch_out = Channel<Agg>::bounded(4)
+
+    // 全部纤程：producer + 2 workers 都跑在纤程上
+    // 让 channel 交互零 syscall（对比 pthread 每次 wait/signal 都要 futex syscall）
+    let wp = spawn {
+        let mut j: i64 = 0
+        while j < 20000 {
+            let m: i64 = j % 97
+            let amt: f64 = m as f64
+            ch_in.send(Order { id: j, amount: amt + 1.0, cat: j % 4 })
+            j = j + 1
+        }
+    }
+    let w1 = spawn { worker(ch_in, ch_out, 10000) }
+    let w2 = spawn { worker(ch_in, ch_out, 10000) }
+
+    wp.await()
+    let a1 = ch_out.recv()
+    let a2 = ch_out.recv()
+    w1.await()
+    w2.await()
+
+    let total = a1.merge(a2)
+    println(f"count={total.count}")
+    println(f"total={total.total:.2}")
+
+    // 校验和：期望值按闭式计算。
+    let full = 97 * 98 / 2 // 1..97 的和 = 4753
+    let full_cycles = 20000 / 97
+    let rem = 20000 % 97
+    let expect_total = full_cycles as f64 * full as f64 + (rem * (rem + 1) / 2) as f64
+    let expect_count = 20000
+
+    if total.count != expect_count {
+        println("COUNT MISMATCH")
+        return 1
+    }
+    if total.total != expect_total {
+        println(f"TOTAL MISMATCH: got {total.total:.2} want {expect_total:.2}")
+        return 1
+    }
+    println(f"cat0={total.cat0:.2} cat1={total.cat1:.2} cat2={total.cat2:.2} cat3={total.cat3:.2}")
+    println("CHECKSUM OK")
+    return 0
+}

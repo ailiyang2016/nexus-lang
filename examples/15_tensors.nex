@@ -1,0 +1,54 @@
+// ============================================================
+// 15 — Tensor：一等公民的数值计算
+// ============================================================
+// Tensor<T> 是语言内建容器：构造族（zeros/ones/filled/from_nested/range/
+// linspace/concat/load）、逐元素运算、归约（sum/mean/max/min）、形状变换
+// （reshape/transpose/slice/split/chunk）。计算硬件无感——同一份代码今天
+// 跑在 CPU 上，未来可跑在加速器上。
+
+fn main() {
+    // ── 构造 ──
+    let zeros = Tensor<f64>.zeros([2, 3]) // 全 0，形状 [2,3]
+    let ones = Tensor<f64>.ones([2, 2]) // 全 1
+    let filled = Tensor<i64>.filled([2, 2], 7) // 全 7
+    let from_list = Tensor<f64>.from_nested([[1.0, 2.0], [3.0, 4.0]])
+    let grid = Tensor<i64>.range(0, 6, 1).reshape([2, 3]) // 0..5 → 2x3
+    let samples = Tensor<f64>.linspace(0.0, 1.0, 5) // 0..1 均匀 5 点
+
+    println(zeros.shape().len()) // 秩 = 2
+    println(filled.get([1, 1])) // 7
+    println(grid.get([1, 2])) // 5
+    println(samples.get([2])) // 0.5
+
+    // ── 归约 ──
+    println(from_list.sum()) // 10
+    println(from_list.mean()) // 2.5
+    println(from_list.max()) // 4
+
+    // ── 逐元素运算（运算符重载直接作用于张量）──
+    let two = Tensor<f64>.filled([2, 2], 2.0)
+    let doubled = from_list.mul(two)
+    println(doubled.get([1, 1])) // 8
+    let added = from_list.add(ones)
+    println(added.get([0, 0])) // 2
+
+    // ── 矩阵乘：`#` 运算符（区别于逐元素乘 *）──
+    let m1 = Tensor<f64>.from_nested([[1.0, 2.0], [3.0, 4.0]])
+    let m2 = Tensor<f64>.from_nested([[5.0, 6.0], [7.0, 8.0]])
+    let m = m1.matmul(m2)
+    println(m.get([0, 0])) // 19
+    println(m.get([1, 1])) // 50
+
+    // ── 形状变换 ──
+    println(m1.transpose(0, 1).get([1, 0])) // 2
+    let flat = grid.reshape([6])
+    println(flat.get([3])) // 3
+    let parts = m1.split(0, [1, 1]) // 沿轴 0 切成 [1,1] 两块
+    println(parts.len()) // 2
+
+    // ── 持久化：save/load 与 dtype 自省 ──
+    m1.save("/tmp/nexus_tensor_demo")
+    let loaded = Tensor<f64>.load("/tmp/nexus_tensor_demo")
+    println(loaded.get([0, 1])) // 2
+    println(m1.dtype()) // f64
+}

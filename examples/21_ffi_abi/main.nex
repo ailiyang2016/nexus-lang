@@ -1,0 +1,42 @@
+// ============================================================
+// 21 — FFI 消费侧：引用自己构建的动态库 + 调用系统库
+// ============================================================
+// ① `@ffi.import` 引用**本仓库刚构建出的** libmylib.dylib（见 build.sh）：
+//      library = 相对路径直指产物（dlopen 按路径打开）；
+//      symbol  = C ABI 裸符号（@ffi.export 生成）。
+// ② 调用**系统库**：libc 的 getpid（进程号）与 abs（绝对值）——
+//    系统调用零封装直达，Nexus 与 C 之间只有一条类型边界。
+//
+// ★ 安全边界：FFI 调用必须在 `unsafe { ... }` 内——编译器把你显式标记为
+//   "接管外部边界的责任"（规范 §4.7：FFI 是受限外部边界，运行时归档符号
+//   视为可信内建，第三方符号按 FFI 边界语义处理）。
+
+// —— 自建库（build.sh 产出的 libmylib.dylib）——
+@ffi.import(library = "./libmylib.dylib", symbol = "add")
+fn mylib_add(a: i64, b: i64) -> i64
+
+@ffi.import(library = "./libmylib.dylib", symbol = "twice")
+fn mylib_twice(x: f64) -> f64
+
+// —— 系统库（libc：POSIX 进程/数学边界）——
+@ffi.import(library = "libc", symbol = "getpid")
+fn os_getpid() -> i64
+
+@ffi.import(library = "libc", symbol = "abs")
+fn os_abs(x: i64) -> i64
+
+fn main() {
+    // 引用自建动态库：Nexus → dylib → Nexus 的完整往返。
+    let a: i64 = unsafe { mylib_add(10, 20) }
+    let t: f64 = unsafe { mylib_twice(2.5) }
+    println(a) // 30
+    println(t) // 5
+
+    // 系统调用：拿当前进程号。
+    let pid: i64 = unsafe { os_getpid() }
+    println(pid)
+
+    // libc 函数：C 语义直达。
+    let v: i64 = unsafe { os_abs(-7) }
+    println(v) // 7
+}

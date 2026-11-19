@@ -1,0 +1,21 @@
+// 矩阵乘用语言原生 Tensor 类型＋# 运算符（matmul 核），非 List 手工构建。
+// 整数张量（i64）⇒ 校验和为精确整数，跨语言无浮点格式/FMA 差异。
+// N=384，确定性二维填充，C = A # B，输出 C.sum()。
+fn main() -> i32 {
+    let n: usize = 384
+    let a = Tensor<i64>.zeros([n, n])
+    let b = Tensor<i64>.zeros([n, n])
+    let mut i: usize = 0
+    while i < n {
+        let mut j: usize = 0
+        while j < n {
+            a.set([i, j], ((i * 7 + j * 3 + 3) % 13) as i64)
+            b.set([i, j], ((i * 5 + j + 1) % 11) as i64)
+            j = j + 1
+        }
+        i = i + 1
+    }
+    let c = a # b
+    print(c.sum())
+    return 0
+}

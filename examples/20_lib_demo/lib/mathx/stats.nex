@@ -1,0 +1,23 @@
+// stats——mathx 包的第二文件（同符号空间）：几何类型。
+// mod.nex 直接使用本文件的 `Point`（同包无需 import）。
+//
+// 库代码同样可以使用 FFI：欧氏距离需要 sqrt，来自系统 libm（macOS 上
+// 由 libSystem 集成提供，Linux 上链接 -lm）。库构建为 cdylib 时这些
+// FFI 依赖同样进入其导出面（见 21_ffi_abi 的库构建演示）。
+
+@ffi.import(library = "libc", symbol = "sqrt")
+fn c_sqrt(x: f64) -> f64
+
+pub class Point {
+    pub x: f64
+    pub y: f64
+
+    fn init(x: f64, y: f64) {
+        self.x = x
+        self.y = y
+    }
+
+    pub fn norm(self) -> f64 {
+        return c_sqrt(self.x * self.x + self.y * self.y)
+    }
+}
